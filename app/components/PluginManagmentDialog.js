@@ -149,7 +149,7 @@ function AddPluginFromURLDialog(props) {
         }
 
         // If the plugin requires authentication, add the auth data to the plugin object
-        if (plugin.requires_auth) {
+        if (plugin.is_user_authenticated) {
             plugin.auth_data = authData;
         }
 
@@ -174,7 +174,7 @@ function AddPluginFromURLDialog(props) {
             <div className="dialog-content">
                 <form onSubmit={handleInstallation}>
                     <TextField
-                        label="URL"
+                        label="Search"
                         hint={error}
                         onChange={downloadPlugin}
                         placeholder="https://example.com"
@@ -257,12 +257,7 @@ function InstalledPluginsList(props) {
                 <span onClick={props.onClose} className="material-symbols-outlined">
                     close
                 </span>
-                <h1>
-                    Plugins
-                    <button style={{ marginLeft: 10 }} onClick={() => props.updatePage(1)}>
-                        Add from URL
-                    </button>
-                </h1>
+                <h1>Plugins</h1>
             </header>
             <div className="dialog-content">
                 <TextField
@@ -271,7 +266,7 @@ function InstalledPluginsList(props) {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{ position: "sticky", top: 0, zIndex: 1 }}
                 />
-                <div className="plugins" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gridTemplateRows: "repeat(2, 1fr)", gridGap: "20px" }}>
+                <div className="plugins" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gridGap: "20px" }}>
                     {currentPlugins && currentPlugins.map((plugin, index) => <Plugin key={index} plugin={plugin} />)}
                 </div>
                 <div style={{ position: "sticky", bottom: 0, zIndex: 1, background: "#fff", padding: "10px 0", borderTop: "1px solid #ccc" }}>
