@@ -269,11 +269,12 @@ function InstalledPluginsList(props) {
                     label="Search"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ position: "sticky", top: 0, zIndex: 1 }}
                 />
-                <div className="plugins" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridGap: "20px" }}>
+                <div className="plugins" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gridTemplateRows: "repeat(2, 1fr)", gridGap: "20px" }}>
                     {currentPlugins && currentPlugins.map((plugin, index) => <Plugin key={index} plugin={plugin} />)}
                 </div>
-                <div>
+                <div style={{ position: "sticky", bottom: 0, zIndex: 1, background: "#fff", padding: "10px 0", borderTop: "1px solid #ccc" }}>
                     <button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}>Previous</button>
                     <span>
                         {currentPage} / {totalPages}
