@@ -90,6 +90,7 @@ async function installPlugin(plugin) {
 function AddPluginFromURLDialog(props) {
     const [error, setError] = useState("");
     const [plugin, setPlugin] = useState(null);
+    const [authData, setAuthData] = useState({});
 
     async function downloadPlugin(event) {
         setError("");
@@ -147,6 +148,11 @@ function AddPluginFromURLDialog(props) {
             return uninstallPlugin(plugin.name);
         }
 
+        // If the plugin requires authentication, add the auth data to the plugin object
+        if (plugin.requires_auth) {
+            plugin.auth_data = authData;
+        }
+
         if (await installPlugin(plugin)) {
             props.updatePage(0);
         }
@@ -176,6 +182,19 @@ function AddPluginFromURLDialog(props) {
                         pattern="^https?://.*"
                         title="Must be a valid website URL"
                     />
+                    {plugin && plugin.requires_auth && (
+                        <>
+                            <TextField
+                                label="Username"
+                                onChange={(e) => setAuthData({ ...authData, username: e.target.value })}
+                            />
+                            <TextField
+                                label="Password"
+                                type="password"
+                                onChange={(e) => setAuthData({ ...authData, password: e.target.value })}
+                            />
+                        </>
+                    )}
                     {plugin && (
                         <div style={{ display: "flex" }}>
                             <Plugin plugin={plugin} />
@@ -251,7 +270,7 @@ function InstalledPluginsList(props) {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <div className="plugins">
+                <div className="plugins" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridGap: "20px" }}>
                     {currentPlugins && currentPlugins.map((plugin, index) => <Plugin key={index} plugin={plugin} />)}
                 </div>
                 <div>
@@ -275,7 +294,7 @@ export default function PluginManagmentDialog(props) {
     const [page, setPage] = useState(0);
 
     return (
-        <div className="dialog-container">
+        <div className="dialog-container" style={{ width: "80%", height: "80%" }}>
             <div className="dialog">
                 {page === 0 && (
                     <InstalledPluginsList settings={props.settings} onClose={props.onClose} updatePage={setPage} />
