@@ -115,7 +115,12 @@ function AddPluginFromURLDialog(props) {
         try {
             response = await fetch(url.toString(), { cache: "no-cache" });
         } catch {
-            return;
+            // If the fetch fails, try again with 'no-cors' mode
+            try {
+                response = await fetch(url.toString(), { mode: 'no-cors', cache: "no-cache" });
+            } catch {
+                return;
+            }
         }
 
         if (response.status !== 200) {
