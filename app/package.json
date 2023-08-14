@@ -16,7 +16,7 @@
     "dexie": "^3.2.3",
     "dexie-react-hooks": "^1.1.3",
     "highlight.js": "^11.7.0",
-    "http-proxy-middleware": "^2.0.1",  // Dodana zależność
+    "http-proxy-middleware": "^2.0.1",
     "next": "^13.3.0",
     "react-markdown": "^8.0.6",
     "react-syntax-highlighter": "^15.5.0",
