@@ -40,7 +40,7 @@ function Plugin(props) {
                         rel="noreferrer noopener"
                         href={
                             typeof plugin.legal_info_url === "string" &&
-                            plugin.legal_info_url.match(/^https?:\/\/\//i) &&
+                            plugin.legal_info_url.match(/^https?:\/\//i) &&
                             plugin.legal_info_url
                         }
                     >
@@ -75,8 +75,7 @@ async function installPlugin(plugin) {
 
     try {
         if (plugin.api.type === "openapi") {
-            const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-            const response = await fetch(proxyUrl + plugin.api.url);
+            const response = await fetch(plugin.api.url);
             plugin.openapi_yaml = await response.text();
         }
         await db.plugins.add(plugin);
@@ -89,91 +88,215 @@ async function installPlugin(plugin) {
 }
 
 function AddPluginFromURLDialog(props) {
-    const [url, setURL] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [plugin, setPlugin] = useState(null);
+    const [authData, setAuthData] = useState({});
 
-    async function addPlugin() {
-        setLoading(true);
+    async function downloadPlugin(event) {
+        setError("");
+        setPlugin(null);
+
+        let url;
         try {
-            const response = await fetch(url);
-            const plugin = await response.json();
-            if (await installPlugin(plugin)) {
-                setURL("");
-            }
-        } catch (error) {
-            console.log(error);
-            alert("Failed to add plugin, due to: " + error);
+            url = new URL(event.target.value);
+        } catch {
+            return;
         }
-        setLoading(false);
+
+        if (!url.pathname.endsWith(".json")) {
+            url.pathname = "/.well-known/ai-plugin.json";
+        }
+
+        // Ensure the URL is HTTP or HTTPS
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+            return;
+        }
+
+        let response;
+        try {
+            response = await fetch(url.toString(), { cache: "no-cache" });
+        } catch {
+            // If the fetch fails, try again with 'no-cors' mode
+            try {
+                response = await fetch(url.toString(), { mode: 'no-cors', cache: "no-cache" });
+            } catch {
+                return;
+            }
+        }
+
+        if (response.status !== 200) {
+            return setError("Failed to download plugin manifest");
+        }
+
+        let plugin;
+        try {
+            plugin = await response.json();
+        } catch {
+            return setError("Invalid plugin manifest");
+        }
+
+        plugin.installed = await db.plugins.where("name_for_human").equals(plugin.name_for_human).count() > 0;
+        setPlugin(plugin);
+    }
+
+    async function handleInstallation(event) {
+        event.preventDefault();
+
+        const exists = await db.plugins.where("name_for_human").equals(plugin.name_for_human).count() > 0;
+
+        if (exists) {
+            return uninstallPlugin(plugin.name);
+        }
+
+        // If the plugin requires authentication, add the auth data to the plugin object
+        if (plugin.is_user_authenticated) {
+            plugin.auth_data = authData;
+        }
+
+        if (await installPlugin(plugin)) {
+            props.updatePage(0);
+        }
     }
 
     return (
-        <div className="dialog">
-            <h3>Add Plugin from URL</h3>
-            <TextField
-                value={url}
-                onChange={(e) => setURL(e.target.value)}
-                placeholder="Plugin JSON URL"
-            />
-            <button className="primary" onClick={addPlugin} disabled={loading}>
-                Add Plugin
-            </button>
-        </div>
+        <>
+            <header>
+                <span onClick={props.onClose} className="material-symbols-outlined">
+                    close
+                </span>
+                <h1>
+                    <button style={{ marginRight: 10 }} onClick={() => props.updatePage(0)}>
+                        Back
+                    </button>
+                    Add plugin
+                </h1>
+            </header>
+            <div className="dialog-content">
+                <form onSubmit={handleInstallation}>
+                    <TextField
+                        label="Search"
+                        hint={error}
+                        onChange={downloadPlugin}
+                        placeholder="https://example.com"
+                        type="url"
+                        pattern="^https?://.*"
+                        title="Must be a valid website URL"
+                    />
+                    {plugin && plugin.requires_auth && (
+                        <>
+                            <TextField
+                                label="Username"
+                                onChange={(e) => setAuthData({ ...authData, username: e.target.value })}
+                            />
+                            <TextField
+                                label="Password"
+                                type="password"
+                                onChange={(e) => setAuthData({ ...authData, password: e.target.value })}
+                            />
+                        </>
+                    )}
+                    {plugin && (
+                        <div style={{ display: "flex" }}>
+                            <Plugin plugin={plugin} />
+                        </div>
+                    )}
+                </form>
+            </div>
+        </>
     );
 }
 
 function InstalledPluginsList(props) {
-    const plugins = useLiveQuery(() => db.plugins.toArray(), []);
-    if (!plugins) return null;
+    const [plugins, setPlugins] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const installedPlugins = useLiveQuery(() => db.plugins.toArray());
+
+    useEffect(() => {
+        const plugins_server_url = props?.settings?.plugins_server_url || DEFAULT_PLUGINS_SERVER;
+        fetch(plugins_server_url + "?r=" + Math.random(), { cache: "no-cache" })
+            .then((response) => response.json())
+            .then((p) => {
+                // Add "installed" property to each plugin
+                p = p.map((p) => {
+                    p.installed = installedPlugins?.find(({ name_for_human }) => name_for_human === p.name_for_human)
+                        ? true
+                        : false;
+                    return p;
+                });
+
+                // Add installed plugins to the p array if they're not already there
+                installedPlugins?.forEach((plugin) => {
+                    if (!p.find(({ name }) => name === plugin.name)) {
+                        plugin.installed = true;
+                        p.push(plugin);
+                    }
+                });
+
+                setPlugins(p);
+            })
+            .catch((error) => {
+                alert("Failed to fetch plugins list, due to: " + error);
+            });
+    }, [installedPlugins, props?.settings?.plugins_server_url]);
+
+    const filteredPlugins = plugins.filter((plugin) =>
+        plugin.name_for_human.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const totalPages = Math.ceil(filteredPlugins.length / ITEMS_PER_PAGE);
+
+    const currentPlugins = filteredPlugins.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
 
     return (
-        <div className="installed-plugins">
-            <h3>Installed Plugins</h3>
-            {plugins.map((plugin, index) => (
-                <Plugin key={index} plugin={plugin} />
-            ))}
-        </div>
+        <>
+            <header>
+                <span onClick={props.onClose} className="material-symbols-outlined">
+                    close
+                </span>
+                <h1>Plugins</h1>
+            </header>
+            <div className="dialog-content">
+                <TextField
+                    label="Search"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ position: "sticky", top: 0, zIndex: 1 }}
+                />
+                <div className="plugins" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gridGap: "20px" }}>
+                    {currentPlugins && currentPlugins.map((plugin, index) => <Plugin key={index} plugin={plugin} />)}
+                </div>
+                <div style={{ position: "sticky", bottom: 0, zIndex: 1, background: "#fff", padding: "10px 0", borderTop: "1px solid #ccc" }}>
+                    <button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}>Previous</button>
+                    <span>
+                        {currentPage} / {totalPages}
+                    </span>
+                    <button onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}>Next</button>
+                </div>
+                <hr />
+                <small>
+                    When using plugins, be aware that a lengthy system prompt may be sent. Please take the time to
+                    thoroughly read and understand the plugin code prior to use.
+                </small>
+            </div>
+        </>
     );
 }
 
 export default function PluginManagmentDialog(props) {
-    const [plugins, setPlugins] = useState([]);
-    const [page, setPage] = useState(1);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        async function fetchPlugins() {
-            try {
-                const response = await fetch(DEFAULT_PLUGINS_SERVER);
-                const data = await response.json();
-                setPlugins(data);
-            } catch (error) {
-                console.log(error);
-            }
-            setLoading(false);
-        }
-        fetchPlugins();
-    }, []);
+    const [page, setPage] = useState(0);
 
     return (
-        <div className="dialog">
-            <h3>Plugin Management</h3>
-            <InstalledPluginsList />
-            <h3>Available Plugins</h3>
-            {loading ? (
-                <div>Loading...</div>
-            ) : (
-                plugins
-                    .slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
-                    .map((plugin, index) => <Plugin key={index} plugin={plugin} />)
-            )}
-            <div className="pagination">
-                {page > 1 && <button onClick={() => setPage(page - 1)}>Previous</button>}
-                {plugins.length > page * ITEMS_PER_PAGE && (
-                    <button onClick={() => setPage(page + 1)}>Next</button>
+        <div className="dialog-container" style={{ width: "80%", height: "80%" }}>
+            <div className="dialog">
+                {page === 0 && (
+                    <InstalledPluginsList settings={props.settings} onClose={props.onClose} updatePage={setPage} />
                 )}
+                {page === 1 && <AddPluginFromURLDialog onClose={props.onClose} updatePage={setPage} />}
             </div>
-            <AddPluginFromURLDialog />
         </div>
     );
 }
