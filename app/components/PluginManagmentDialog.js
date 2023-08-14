@@ -75,7 +75,9 @@ async function installPlugin(plugin) {
 
     try {
         if (plugin.api.type === "openapi") {
-            const response = await fetch(plugin.api.url);
+            // Używamy serwera proxy zamiast bezpośredniego odwołania do zewnętrznego API
+            const proxyUrl = `/api/proxy?target=${encodeURIComponent(plugin.api.url)}`;
+            const response = await fetch(proxyUrl);
             plugin.openapi_yaml = await response.text();
         }
         await db.plugins.add(plugin);
@@ -86,6 +88,7 @@ async function installPlugin(plugin) {
         return false;
     }
 }
+
 
 function AddPluginFromURLDialog(props) {
     const [error, setError] = useState("");
