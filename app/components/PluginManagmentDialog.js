@@ -75,7 +75,8 @@ async function installPlugin(plugin) {
 
     try {
         if (plugin.api.type === "openapi") {
-            const response = await fetch(plugin.api.url, { mode: 'no-cors' }); // Modified line
+            const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+            const response = await fetch(proxyUrl + plugin.api.url);
             plugin.openapi_yaml = await response.text();
         }
         await db.plugins.add(plugin);
