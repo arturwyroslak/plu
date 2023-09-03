@@ -16,13 +16,13 @@ import PluginManagmentDialog from "components/PluginManagmentDialog";
 
 const SUPPORTED_MODELS = [
     { name: "GPT4All", value: "gpt4all" },
-    { name: "GPT-3.5 Turbo", value: "gpt-3.5-turbo" },
+    { name: "gpt-3.5-turbo", value: "gpt-3.5-turbo" },
     { name: "GPT-4", value: "gpt-4" },
 ];
 
 const MODEL_VALUE_TO_NAME = {
     "gpt4all": "GPT4All",
-    "gpt-3.5-turbo": "GPT-3.5 Turbo",
+    "gpt-3.5-turbo": "gpt-3.5-turbo",
     "gpt-4": "GPT-4",
 };
 
