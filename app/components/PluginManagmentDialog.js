@@ -3,7 +3,7 @@ import TextField from "./TextField";
 import { useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 
-const DEFAULT_PLUGINS_SERVER = "https://sed2.vercel.app/plugins.json";
+
 const ITEMS_PER_PAGE = 10;
 
 function Plugin(props) {
