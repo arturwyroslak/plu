@@ -285,8 +285,8 @@ export default function Chat() {
                 url = "https://api.openai.com/v1/chat/completions";
                 break;
             default:
-                auth = "";
-                url = settings?.gpt4all_server_url;
+                auth = `Bearer ${settings?.openai_api_key}`;
+                url = https://api.openai.com/v1/chat/completions;
                 break;
         }
 
