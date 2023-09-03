@@ -15,13 +15,11 @@ import AutoResizedTextarea from "components/AutoResizedTextarea";
 import PluginManagmentDialog from "components/PluginManagmentDialog";
 
 const SUPPORTED_MODELS = [
-    { name: "GPT4All", value: "gpt4all" },
     { name: "gpt-3.5-turbo", value: "gpt-3.5-turbo" },
     { name: "GPT-4", value: "gpt-4" },
 ];
 
 const MODEL_VALUE_TO_NAME = {
-    "gpt4all": "GPT4All",
     "gpt-3.5-turbo": "gpt-3.5-turbo",
     "gpt-4": "GPT-4",
 };
@@ -205,7 +203,7 @@ export default function Chat() {
     }
 
     async function sendMessage(prompt, isPlugin = false) {
-        if ((model === "gpt-4" || model === "gpt-3.5-turbo") && !settings?.openai_api_key) {
+        if ((model === "gpt-3.5-turbo") && !settings?.openai_api_key) {
             return setShowSettings(true);
         }
 
@@ -279,14 +277,9 @@ export default function Chat() {
 
         let url, auth;
         switch (model) {
-            case "gpt-4":
             case "gpt-3.5-turbo":
                 auth = `Bearer ${settings?.openai_api_key}`;
                 url = "https://api.openai.com/v1/chat/completions";
-                break;
-            default:
-                auth = `Bearer ${settings?.openai_api_key}`;
-                url = https://api.openai.com/v1/chat/completions;
                 break;
         }
 
@@ -523,18 +516,6 @@ export default function Chat() {
                         </button>
                     </div>
                     {!messages || messages.length === 0 && <>
-                        <div className="model-selector-container">
-                            <div className="model-selector">
-                                <label>Model</label>
-                                <select value={model} onChange={handleModelChange}>
-                                    {SUPPORTED_MODELS.filter(({ value }) => {
-                                        if (value === "gpt4all" && !settings?.gpt4all_server_url) {
-                                            return false;
-                                        }
-                                        return true;
-                                    }).map((model, index) => <option key={index} value={model.value}>{model.name}</option>)}
-                                </select>
-                            </div>
                             <div className="model-selector">
                                 <label>Plugin</label>
                                 <select value={plugin} onChange={handlePluginChange}>
