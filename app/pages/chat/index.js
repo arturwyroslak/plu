@@ -15,15 +15,34 @@ import AutoResizedTextarea from "components/AutoResizedTextarea";
 import PluginManagmentDialog from "components/PluginManagmentDialog";
 
 const SUPPORTED_MODELS = [
+    { name: "GPT4All", value: "gpt4all" },
     { name: "gpt-3.5-turbo", value: "gpt-3.5-turbo" },
     { name: "GPT-4", value: "gpt-4" },
 ];
 
 const MODEL_VALUE_TO_NAME = {
+    "gpt4all": "GPT4All",
     "gpt-3.5-turbo": "gpt-3.5-turbo",
     "gpt-4": "GPT-4",
 };
 
+
+    
+          
+            
+    
+
+          
+          Expand Down
+          
+            
+    
+
+          
+          Expand Up
+    
+    @@ -610,4 +610,4 @@ export default function Chat() {
+  
 export default function Chat() {
     const router = useRouter();
     const [title, setTitle] = useState("");
@@ -42,12 +61,9 @@ export default function Chat() {
     const [showScrollDown, setShowScrollDown] = useState(false);
     const [loading, setLoading] = useState(false);
     const [showPluginsManagment, setShowPluginsManagment] = useState(false);
-
     const plugins = useLiveQuery(() => db.plugins.toArray());
-
     useEffect(function () {
         handleSettingsDialogClose();
-
         // get the last conversation model and set it as the default
         db.chats.orderBy("id").last().then(chat => {
             if (!chat) {
@@ -57,25 +73,20 @@ export default function Chat() {
         }).catch(error => {
             console.error(error);
         });
-
         // detect when scroll is needed
         let messagesContainer = document.querySelector("main");
         if (!messagesContainer) {
             return;
         }
-
         messagesContainer.addEventListener("scroll", showScrollToBottomButton);
-
         return function () {
             messagesContainer.removeEventListener("scroll", showScrollToBottomButton);
         }
     }, []);
-
     useEffect(function () {
         if (!router.query.id) {
             return;
         }
-
         setTitle("");
         setMessageError(false);
         setMessages([]);
@@ -84,32 +95,26 @@ export default function Chat() {
         setActivePlugin(null);
         setStreamedMessage("");
         setShowMenu(false);
-
         db.conversations.where("uuid").equals(router.query.id).first().then(conv => {
             if (!conv) {
                 return;
             }
-
             conversation.load(conv.json);
             setMessages(conversation.flatten());
             handleSettingsDialogClose();
-
             requestAnimationFrame(() => {
                 scrollDown(false);
             });
         });
-
         db.chats.where("uuid").equals(router.query.id).first().then(chat => {
             if (!chat) {
                 return;
             }
-
             setTitle(chat.title);
             setModel(chat.model);
             setActivePlugin(chat.plugin);
         });
     }, [router.query]);
-
     useEffect(function () {
         async function handleIncomingMessage(event) {
             console.log(event.data);
@@ -129,16 +134,13 @@ export default function Chat() {
                 });
                 return source?.close();
             }
-
             const payload = JSON.parse(event.data);
             const text = payload?.choices[0]?.delta?.content;
-
             if (text) {
                 setStreamedMessage(oldMsg => {
                     if (oldMsg === "" && text.trim() === "") {
                         return "";
                     }
-
                     let newStreamedMessage = oldMsg + text;
                     if (newStreamedMessage.length % 18 === 0) {
                         scrollDown(false);
@@ -147,31 +149,25 @@ export default function Chat() {
                 });
             }
         }
-
         source?.addEventListener("readystatechange", event => {
             if (event.readyState >= 2) {
                 setLoading(false);
             }
         });
-
         source?.addEventListener("message", handleIncomingMessage);
-
         source?.addEventListener("error", err => {
             console.log(err);
             setLoading(false);
             setMessageError(true);
             setStreamedMessage("Failed to connect to the model server.\nPlease make sure the server is running and the URL is correct.");
         });
-
         if (source?.readyState === -1) {
             source.stream();
         }
-
         return function () {
             source?.close();
         }
     }, [source]);
-
     function showScrollToBottomButton(event) {
         var target = event.target;
         if (target.scrollHeight - target.scrollTop === target.clientHeight) {
@@ -180,47 +176,37 @@ export default function Chat() {
             setShowScrollDown(true);
         }
     }
-
     async function presistConversation() {
         let conv = await db.conversations.where("uuid").equals(router.query.id).first();
-
         if (!conv) {
             return await db.conversations.add({
                 uuid: router.query.id,
                 json: conversation.toJSON(),
             });
         }
-
         return await db.conversations.update(conv.id, {
             json: conversation.toJSON(),
         });
     }
-
     async function handleChangePath(node, index) {
         conversation.changeConversationPath(node.ref.parent, index);
         setMessages(conversation.flatten());
         await presistConversation();
     }
-
     async function sendMessage(prompt, isPlugin = false) {
-        if ((model === "gpt-3.5-turbo") && !settings?.openai_api_key) {
+        if ((model === "gpt-4" || model === "gpt-3.5-turbo") && !settings?.openai_api_key) {
             return setShowSettings(true);
         }
-
         prompt = prompt.trim();
-
         if (!prompt) {
             return;
         }
-
         setMessageError(false);
         setStreamedMessage("");
-
         setTimeout(() => {
             window.dispatchEvent(new Event("textarea-resize"));
             scrollDown(true);
         }, 100);
-
         if (activePlugin) {
             switch (activePlugin.api.type) {
                 case "openapi":
@@ -237,14 +223,11 @@ export default function Chat() {
                     break;
             }
         }
-
         if (messages.length === 0) {
             GenerateTitle(prompt, settings?.openai_api_key).then(async newTitle => {
                 setTitle("");
                 TypeWriterSetState(newTitle, setTitle);
-
                 const chat = await db.chats.where("uuid").equals(router.query.id).first();
-
                 if (!chat) {
                     db.chats.add({
                         uuid: router.query.id,
@@ -259,30 +242,30 @@ export default function Chat() {
                 }
             });
         }
-
         if (!isPlugin) {
             conversation.userSend(prompt);
         } else {
             conversation.assistantSend(prompt);
         }
-
         let flattenMessages = conversation.flatten();
         setMessages(flattenMessages);
         startSSE(flattenMessages);
     }
-
     function startSSE(messages) {
         setLoading(true);
         setStreamedMessage("");
-
         let url, auth;
         switch (model) {
+            case "gpt-4":
             case "gpt-3.5-turbo":
                 auth = `Bearer ${settings?.openai_api_key}`;
                 url = "https://api.openai.com/v1/chat/completions";
                 break;
+            default:
+                auth = "";
+                url = settings?.gpt4all_server_url;
+                break;
         }
-
         let data = {
             model,
             messages: messages.map(m => {
@@ -291,7 +274,6 @@ export default function Chat() {
             max_tokens: 2000,
             stream: true
         };
-
         setSource(oldSource => {
             oldSource?.close();
             return new SSE(url, {
@@ -304,30 +286,24 @@ export default function Chat() {
             });
         });
     }
-
     function scrollDown(smooth = true) {
         let messagesContainer = document.querySelector("main")
-
         if (!messagesContainer) {
             return;
         }
-
         if (smooth) {
             return messagesContainer.scrollTo({
                 top: messagesContainer.scrollHeight + 1000,
                 behavior: "smooth"
             })
         }
-
         messagesContainer.scrollTo(0, messagesContainer.scrollHeight + 1000);
     }
-
     function handleCancel(el) {
         let message = messages[editable];
         el.innerText = message.content;
         setEditable(null);
     }
-
     async function handleSaveAndSubmit(newContent, node) {
         conversation.edit(node.ref, newContent);
         let flattenMessages = conversation.flatten();
@@ -335,7 +311,6 @@ export default function Chat() {
         setEditable(null);
         await sendToServer(flattenMessages);
     }
-
     async function handleRegenerate() {
         let flattenMessages = conversation.flatten();
         flattenMessages.pop();
@@ -343,36 +318,28 @@ export default function Chat() {
         conversation.currentNode = flattenMessages[flattenMessages.length - 1].ref;
         await sendToServer(flattenMessages);
     }
-
     async function sendToServer(flattenMessages) {
         setMessageError(false);
         setStreamedMessage("");
         startSSE(flattenMessages);
     }
-
     function handleSettingsDialogClose() {
         setShowSettings(false);
         setSettings(JSON.parse(localStorage.getItem("settings")));
     }
-
     async function handleDeleteAll() {
         if (!confirm("Are you sure you want to delete all messages?")) {
             return;
         }
-
         await db.chats.clear();
         await db.conversations.clear();
-
         router.push("/");
     }
-
     function handleMessageRequest(messageContent) {
         sendMessage(messageContent, true);
     }
-
     async function handlePluginChange(event) {
         setPlugin(event.target.value);
-
         switch (event.target.value) {
             case "manage-plugins":
                 setPlugin("none");
@@ -380,17 +347,14 @@ export default function Chat() {
                 break;
             default:
                 let pluginData = await db.plugins.where("name_for_human").equals(event.target.value).first();
-
                 if (!pluginData) {
                     console.error("Plugin not found in database");
                     return;
                 }
-
                 setActivePlugin(pluginData);
                 break;
         }
     }
-
     function handleForceStop() {
         setStreamedMessage(content => {
             if (!content) {
@@ -407,28 +371,22 @@ export default function Chat() {
         source?.close();
         setLoading(false);
     }
-
     function handleModelChange(event) {
         let newModel = event.target.value;
         let selectedPlugin = plugins.find(p => p.name === plugin);
-
         if (!selectedPlugin?.supported_models?.includes(newModel)) {
             setPlugin("none");
             setActivePlugin(null);
         }
-
         setModel(newModel);
     }
-
     function handleCopy(text, node) {
         if (navigator?.clipboard?.writeText) {
             navigator.clipboard.writeText(text);
         } else {
             copyText(text);
         }
-
         let span;
-
         switch (node.tagName) {
             case "SPAN":
                 span = node;
@@ -437,7 +395,6 @@ export default function Chat() {
                 span = node.querySelector("span");
                 break;
         }
-
         if (span) {
             span.innerText = "check";
             setTimeout(function () {
@@ -445,7 +402,6 @@ export default function Chat() {
             }, 1000);
         }
     }
-
     function copyText(text) {
         const el = document.createElement('textarea');
         el.value = text;
@@ -462,7 +418,6 @@ export default function Chat() {
             document.getSelection().addRange(selected);
         }
     }
-
     return <>
         <Head>
             <title>{title || "New Chat"}</title>
@@ -516,6 +471,18 @@ export default function Chat() {
                         </button>
                     </div>
                     {!messages || messages.length === 0 && <>
+                        <div className="model-selector-container">
+                            <div className="model-selector">
+                                <label>Model</label>
+                                <select value={model} onChange={handleModelChange}>
+                                    {SUPPORTED_MODELS.filter(({ value }) => {
+                                        if (value === "gpt4all" && !settings?.gpt4all_server_url) {
+                                            return false;
+                                        }
+                                        return true;
+                                    }).map((model, index) => <option key={index} value={model.value}>{model.name}</option>)}
+                                </select>
+                            </div>
                             <div className="model-selector">
                                 <label>Plugin</label>
                                 <select value={plugin} onChange={handlePluginChange}>
